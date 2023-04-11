@@ -19,6 +19,7 @@ type GelatoTaskStatusLabelProps = {
   chainId: string;
   transactionHash?: string;
   setTransactionHash: React.Dispatch<React.SetStateAction<string>>;
+  setTransactionStatus: React.Dispatch<React.SetStateAction<string>>;
 };
 
 const pollingTime = 4_000; // 4 seconds of polling time to update the Gelato task status
@@ -29,6 +30,7 @@ const GelatoTaskStatusLabel = ({
   chainId,
   transactionHash,
   setTransactionHash,
+  setTransactionStatus,
 }: GelatoTaskStatusLabelProps) => {
   const fetchGelatoTaskInfo = useCallback(
     async () => await new GelatoRelayAdapter().getTaskStatus(gelatoTaskId),
@@ -38,6 +40,8 @@ const GelatoTaskStatusLabel = ({
   const { data: gelatoTaskInfo } = useApi(fetchGelatoTaskInfo, pollingTime);
 
   console.log("gelatoTaskInfo: ", gelatoTaskInfo);
+
+  setTransactionStatus(gelatoTaskInfo?.taskState ? gelatoTaskInfo?.taskState : "Undefined");
 
   const chain = getChain(chainId);
 
@@ -116,7 +120,7 @@ export default GelatoTaskStatusLabel;
 
 const Container = styled(Box)`
   max-width: 800px;
-  margin: 0 auto;
+  margin: 0;
   margin-top: 12px;
 `;
 

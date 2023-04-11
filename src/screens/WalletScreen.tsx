@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Typography from "@mui/material/Typography";
 import Link from "@mui/material/Link";
 import Button from "@mui/material/Button";
@@ -46,8 +46,20 @@ const WalletScreen = ({ setScreen }: ScreenProps) => {
   } = useAccountAbstraction();
 
   const [transactionHash, setTransactionHash] = useState<string>("");
+  const [transactionStatus, setTransactionStatus] = useState<string>("");
 
   if(!isAuthenticated) setScreen(0);
+
+
+  useEffect(() => {
+    console.log("tx hash: ", transactionHash)
+  }, [transactionHash])
+
+  useEffect(() => {
+    console.log("tx status: ", transactionStatus)
+    if(transactionStatus === "ExecSuccess") {
+    }
+  }, [transactionStatus])
 
   // TODO: ADD PAY FEES USING USDC TOKEN
 
@@ -117,44 +129,25 @@ const WalletScreen = ({ setScreen }: ScreenProps) => {
       >
         <Typography fontWeight="700">Relayed / sponsored transaction (via Gelato)</Typography>
 
-        {/* Gelato status label */}
-        {gelatoTaskId && (
-          <GelatoTaskStatusLabel
-            gelatoTaskId={gelatoTaskId}
-            chainId={chainId}
-            setTransactionHash={setTransactionHash}
-            transactionHash={transactionHash}
-          />
-        )}
+        <>
+          {/* send fake transaction to Gelato relayer */}
+          <Button
+            sx={{width: "60%", margin: "0 auto"}}
+            startIcon={<SendIcon />}
+            variant="contained"
+            disabled={!hasNativeFunds}
+            onClick={relayTransaction}
+          >
+            Send Transaction
+          </Button>
 
-        {isRelayerLoading && (
-          <LinearProgress sx={{ alignSelf: "stretch" }} />
-        )}
+          {!hasNativeFunds && chain?.faucetUrl && (
+            <Link href={chain.faucetUrl} target="_blank">
+              Request 0.5 {chain.token}.
+            </Link>
+          )}
+        </>
 
-        {!isRelayerLoading && !gelatoTaskId && (
-          <>
-            <Typography fontSize="14px" marginBottom="32px">
-              Check the status of your relayed transaction.
-            </Typography>
-
-            {/* send fake transaction to Gelato relayer */}
-            <Button
-              sx={{width: "60%", margin: "0 auto"}}
-              startIcon={<SendIcon />}
-              variant="contained"
-              disabled={!hasNativeFunds}
-              onClick={relayTransaction}
-            >
-              Send Transaction
-            </Button>
-
-            {!hasNativeFunds && chain?.faucetUrl && (
-              <Link href={chain.faucetUrl} target="_blank">
-                Request 0.5 {chain.token}.
-              </Link>
-            )}
-          </>
-        )}
 
         {/* Transaction details */}
         <Stack gap={0.5} display="flex" flexDirection="column">
@@ -178,6 +171,21 @@ const WalletScreen = ({ setScreen }: ScreenProps) => {
             </Stack>
           )}
         </Stack>
+
+        {/* Gelato status label */}
+        {gelatoTaskId && (
+          <GelatoTaskStatusLabel
+            gelatoTaskId={gelatoTaskId}
+            chainId={chainId}
+            setTransactionHash={setTransactionHash}
+            transactionHash={transactionHash}
+            setTransactionStatus={setTransactionStatus}
+          />
+        )}
+
+        {isRelayerLoading && (
+          <LinearProgress sx={{ alignSelf: "stretch" }} />
+        )}
       </ConnectedContainer>
 
       <Divider style={{ margin: "40px 0 30px 0" }} />

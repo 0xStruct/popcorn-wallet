@@ -11,6 +11,7 @@
     "@safe-global/auth-kit": "0.1.0-alpha.2",
     "@safe-global/onramp-kit": "0.1.0-alpha.2",
     "@safe-global/relay-kit": "0.1.0-alpha.2",
+    "@safe-global/safe-core-sdk": "^3.3.2",
     "@safe-global/safe-react-components": "^2.0.3",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",

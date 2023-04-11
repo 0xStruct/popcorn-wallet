@@ -19,30 +19,61 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import { useState, useEffect } from "react";
 
+import LinearProgress from "@mui/material/LinearProgress";
+import GelatoTaskStatusLabel from "src/components/gelato-task-status-label/GelatoTaskStatusLabel";
+
 const PlayScreen = () => {
   const { 
-    loginWeb3Auth, isAuthenticated, safeSelected, chainId,
+    loginWeb3Auth, isAuthenticated, safeSelected, safeBalance, chainId, chain,
+    
+    isRelayerLoading, relayTransaction, gelatoTaskId,
     getPopCornCounter, incrementPopCornCounter,
   
   } = useAccountAbstraction();
 
+  const [transactionHash, setTransactionHash] = useState<string>("");
+  const [transactionStatus, setTransactionStatus] = useState<string>("");
+
+  const [gameButtonsDisabled, setGameButtonsDisabled] = useState<Boolean>(false);
+  
   const [popCounter, setPopCounter] = useState<string>("-");
   const [cornCounter, setCornCounter] = useState<string>("-");
 
-  // update pop corn counters
-  useEffect(() => {
-    const getCounter = async () => {
-      const popcorn = await getPopCornCounter();
-      
+  const getCounter = async () => {
+    const popcorn = await getPopCornCounter();
+    
+    if(popcorn) {
       console.log("popcorn: ", popcorn);
       setPopCounter(popcorn[0].toString());
       setCornCounter(popcorn[1].toString());
     }
+  }
 
+  const onClickGameButtons = async (popOrCorn: string) => {
+    setGameButtonsDisabled(true)
+
+    incrementPopCornCounter(popOrCorn)
+  }
+
+  // update pop corn counters
+  useEffect(() => {
     getCounter()
       .catch(console.error);
-  }, []);
+  }, [isAuthenticated]);
 
+  useEffect(() => {
+    console.log("tx hash: ", transactionHash)
+  }, [transactionHash])
+
+  useEffect(() => {
+    console.log("tx status: ", transactionStatus)
+    if(transactionStatus === "ExecSuccess") {
+      getCounter()
+        .catch(console.error);
+
+      setGameButtonsDisabled(false)
+    }
+  }, [transactionStatus])
 
   return (
     <>
@@ -110,8 +141,11 @@ const PlayScreen = () => {
           <ConnectedContainer width="100%">
             <Typography fontWeight="700">Interact with game smart contract</Typography>
 
-            <Typography fontSize="14px" marginTop="8px" marginBottom="32px">
+            <Typography fontSize="14px" marginTop="8px" marginBottom="16px">
               wallet is abstracted away from user to provide frictionless, gasless UX
+            </Typography>
+            <Typography fontSize="14px" marginTop="8px" marginBottom="16px">
+              game contract address is: <a href="https://mumbai.polygonscan.com/address/0xe6d466de66fbc2044f1fa320b67fac3c3c8df3e7#code" target="_blank">0xe6D466De66FBc2044f1FA320B67fAc3C3c8DF3e7</a>
             </Typography>
 
             {/* Simple PopCorn contract: 
@@ -119,10 +153,10 @@ const PlayScreen = () => {
             */}
             <Grid container spacing={1}>
               <Grid item xs={5} sx={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                <Box sx={{marginBottom: '8px', fontSize: '24px'}}>
+                <Box sx={{marginBottom: '8px', fontSize: '24px', fontWeight: '800'}}>
                   {popCounter}
                 </Box>
-                <Button variant="outlined" onClick={incrementPopCornCounter}>🍭 POP</Button>
+                <Button variant="outlined" sx={{width: '80%'}} disabled={gameButtonsDisabled} onClick={() => onClickGameButtons("pop")}>🍭<br />POP</Button>
               </Grid>
               <Grid item xs={2} sx={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
                 <Box>
@@ -130,12 +164,27 @@ const PlayScreen = () => {
                 </Box>
               </Grid>
               <Grid item xs={5} sx={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                <Box sx={{marginBottom: '8px', fontSize: '24px'}}>
+                <Box sx={{marginBottom: '8px', fontSize: '24px', fontWeight: '800'}}>
                   {cornCounter}
                 </Box>
-                <Button variant="outlined" onClick={incrementPopCornCounter}>🌽 CORN</Button>
+                <Button variant="outlined" sx={{width: '80%'}} disabled={gameButtonsDisabled} onClick={() => onClickGameButtons("corn")}>🌽<br/>CORN</Button>
               </Grid>
             </Grid>
+
+            {gelatoTaskId && (
+              <GelatoTaskStatusLabel
+                gelatoTaskId={gelatoTaskId}
+                chainId={chainId}
+                setTransactionHash={setTransactionHash}
+                transactionHash={transactionHash}
+                setTransactionStatus={setTransactionStatus}
+                sx={{margin: "8px"}}
+              />
+            )}
+
+            {isRelayerLoading && (
+              <LinearProgress sx={{ alignSelf: "stretch", margin: "8px" }} />
+            )}
 
           </ConnectedContainer>
         </Box>

@@ -8,10 +8,10 @@ import {
 import { utils, ethers, BigNumber } from "ethers";
 import { SafeAuthKit, SafeAuthProviderType } from "@safe-global/auth-kit";
 import AccountAbstraction, {
-  MetaTransactionData,
-  MetaTransactionOptions,
+  MetaTransactionData as MetaTransactionDataX,
+  MetaTransactionOptions as MetaTransactionOptionsX,
 } from "@safe-global/account-abstraction-kit-poc";
-import { GelatoRelayAdapter } from "@safe-global/relay-kit";
+import { GelatoRelayAdapter, MetaTransactionOptions } from "@safe-global/relay-kit";
 import {
   SafeOnRampKit,
   SafeOnRampEvent,
@@ -22,6 +22,10 @@ import getChain from "src/utils/getChain";
 import Chain from "src/models/chain";
 import { initialChain } from "src/chains/chains";
 import usePolling from "src/hooks/usePolling";
+
+import EthersAdapter from "@safe-global/safe-ethers-lib";
+import Safe from "@safe-global/safe-core-sdk";
+import { MetaTransactionData, OperationType } from '@safe-global/safe-core-sdk-types'
 
 type accountAbstractionContextValue = {
   ownerAddress?: string;
@@ -39,7 +43,7 @@ type accountAbstractionContextValue = {
   isRelayerLoading: boolean;
   relayTransaction: () => Promise<void>;
   getPopCornCounter: () => Promise<void>;
-  incrementPopCornCounter: () => Promise<void>;
+  incrementPopCornCounter: (popOrCorn: string) => Promise<void>;
   gelatoTaskId?: string;
   openStripeWidget: () => Promise<void>;
   closeStripeWidget: () => Promise<void>;
@@ -196,26 +200,31 @@ const AccountAbstractionProvider = ({
   const relayTransaction = async () => {
     if (web3Provider) {
       setIsRelayerLoading(true);
+      setGelatoTaskId(undefined);
 
       const signer = web3Provider.getSigner();
-      const relayAdapter = new GelatoRelayAdapter();
+      const relayAdapter = new GelatoRelayAdapter(process.env.REACT_APP_GELATO_RELAYER_KEY);
       const safeAccountAbstraction = new AccountAbstraction(signer);
 
       await safeAccountAbstraction.init({ relayAdapter });
 
       // we use a dump safe transfer as a demo transaction
-      const dumpSafeTransfer: MetaTransactionData = {
+      const dumpSafeTransfer: MetaTransactionDataX = {
         to: safeSelected,
         data: "0x",
-        value: BigNumber.from(utils.parseUnits("0.01", "ether").toString()),
+        value: BigNumber.from(utils.parseUnits("0.001", "ether").toString()),
         operation: 0, // OperationType.Call,
       };
 
-      const options: MetaTransactionOptions = {
+      const options: MetaTransactionOptionsX = {
         isSponsored: false,
-        gasLimit: BigNumber.from("600000"), // in this alfa version we need to manually set the gas limit :<
+        gasLimit: BigNumber.from("1000000"), // in this alfa version we need to manually set the gas limit :<
         gasToken: ethers.constants.AddressZero, // native token ???
       };
+
+      console.log("deployed: ", await safeAccountAbstraction.isSafeDeployed())
+      console.log("signer addr: ", await safeAccountAbstraction.getSignerAddress())
+      console.log("safe addr: ", await safeAccountAbstraction.getSafeAddress())
 
       const gelatoTaskId = await safeAccountAbstraction.relayTransaction(
         dumpSafeTransfer,
@@ -244,58 +253,94 @@ const AccountAbstractionProvider = ({
     }
   };
 
-  const incrementPopCornCounter = async () => {
-    console.log("increment")
+  const incrementPopCornCounter = async (popOrCorn: string) => {
     if (web3Provider) {    
-      const signer = web3Provider.getSigner();
-      const _signer = new ethers.providers.Web3Provider(authClient?.getProvider()!).getSigner();
-      //const relayAdapter = new GelatoRelayAdapter();
-      //const safeAccountAbstraction = new AccountAbstraction(signer);
+      setIsRelayerLoading(true);
+      setGelatoTaskId(undefined);
 
+      const signer = web3Provider.getSigner(); 
+      const relayAdapter = new GelatoRelayAdapter(process.env.REACT_APP_GELATO_RELAYER_KEY);
+      //const safeAccountAbstraction = new AccountAbstraction(signer);
       //await safeAccountAbstraction.init({ relayAdapter });
 
       const contractABI =
         '[{"inputs":[],"name":"getPopCorn","outputs":[{"internalType":"int128","name":"","type":"int128"},{"internalType":"int128","name":"","type":"int128"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"incrementCorn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"incrementPop","outputs":[],"stateMutability":"nonpayable","type":"function"}]';
       const contractAddress = "0xe6D466De66FBc2044f1FA320B67fAc3C3c8DF3e7";
+      const contract = new ethers.Contract(contractAddress, contractABI, signer);
 
-      const contract = new ethers.Contract(contractAddress, contractABI, _signer);
+      // const contractInterface = new ethers.utils.Interface(contractABI);
+      // txData = contractInterface.encodeFunctionData("incrementPop");
+      // console.log("txData: ", txData)
 
-      //if(popOrCorn === 'pop') console.log("popOrCorn: ", popOrCorn);
+      const unsignedTx = await contract.populateTransaction.incrementPop();
+      console.log("unsignedTx: ", unsignedTx)
 
-      //let { data } = await contract.populateTransaction.incrementPop();
-
-      try {
-        const tx = await contract.incrementPop();
-
-        // Wait for transaction to finish
-        //const receipt = await tx.wait();
-  
-        //console.log("receipt: ", await tx.wait());
-        console.log("tx: ", await _signer.sendTransaction(tx));
-      } catch(error) {
-        console.log(error)
+      let txData = "0x177eca08";
+      if(popOrCorn === "pop") {
+        txData = "0x177eca08"
+      } else if(popOrCorn === "corn") {
+        txData = "0x330eba29"
       }
-      
 
-
-      //return await contract.getPopCorn();
-
-      /*const popCornCounterContract = new ethers.Contract(
-        contractConfig?.target!,
-        COUNTER_CONTRACT_ABI,
-        new ethers.providers.Web3Provider(web3AuthProvider!).getSigner()
-      );
-      setCounterContract(counterContract);
-
-      const fetchStatus = async () => {
-        if (!counterContract || !gelatoSmartWallet) {
-          return;
-        }
-        const counter = (await counterContract.counter()).toString();
-        setCounter(counter);
-        setIsDeployed(await gelatoSmartWallet.isDeployed());
+      const safeTransactionData: MetaTransactionData = {
+        to: contractAddress,
+        data: txData,
+        value: utils.parseUnits("0", "ether").toString(), //BigNumber.from(utils.parseUnits("0", "ether").toString()),
+        operation: 0, // OperationType.Call,
       };
-      await fetchStatus();*/
+
+      const options: MetaTransactionOptions = {
+        isSponsored: true,
+        gasLimit: BigNumber.from("1000000"), // in this alfa version we need to manually set the gas limit :<
+        gasToken: ethers.constants.AddressZero, // native token ???
+      };
+
+      
+      const ethAdapter = new EthersAdapter({
+        ethers,
+        signerOrProvider: signer
+      })
+        
+      const safeSDK = await Safe.create({
+          ethAdapter,
+          safeAddress: safeSelected
+      })
+
+      // Prepare the transaction
+      const safeTransaction = await safeSDK.createTransaction({
+        safeTransactionData: safeTransactionData
+      })
+      
+      const signedSafeTx = await safeSDK.signTransaction(safeTransaction)
+
+      console.log("signedSafeTx.data: ", signedSafeTx.data)
+      
+      const encodedTx = safeSDK.getContractManager().safeContract.encode('execTransaction', [
+        signedSafeTx.data.to,
+        signedSafeTx.data.value,
+        signedSafeTx.data.data,
+        signedSafeTx.data.operation,
+        signedSafeTx.data.safeTxGas,
+        signedSafeTx.data.baseGas,
+        signedSafeTx.data.gasPrice,
+        signedSafeTx.data.gasToken,
+        signedSafeTx.data.refundReceiver,
+        signedSafeTx.encodedSignatures()
+      ])
+      console.log("encodedTx: ", encodedTx)
+
+      const relayTransaction: any = {
+        target: contractAddress,
+        encodedTransaction: encodedTx.replace("0x6a761202", txData),
+        chainId: 80001,
+        options
+      }
+      const response = await relayAdapter.relayTransaction(relayTransaction)
+
+      console.log(`Relay Transaction Task ID: https://relay.gelato.digital/tasks/status/${response.taskId}`)
+
+      setIsRelayerLoading(false);
+      setGelatoTaskId(response.taskId);
     }
   };
 
